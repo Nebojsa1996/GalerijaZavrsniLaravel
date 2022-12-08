@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -14,7 +16,16 @@ class AuthController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('auth:api', ['except' => ['login']]);
+        $this->middleware('auth:api', ['except' => ['login','register']]);
+    }
+
+    public function update($request)
+    {
+        // Validate the new password length...
+ 
+        $request->user()->fill([
+            'password' => Hash::make($request->newPassword)
+        ])->save();
     }
 
     /**
@@ -26,11 +37,21 @@ class AuthController extends Controller
     {
         $credentials = request(['email', 'password']);
 
-        if (! $token = auth()->attempt($credentials)) {
+        if ( !$token = auth()->attempt($credentials)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         return $this->respondWithToken($token);
+    }
+
+    public function register()
+    {
+        $credentials = request(['name','email', 'password']);
+        $credentials['password'] = bcrypt($credentials['password']);
+
+        User::create($credentials);
+
+        return response()->json('success');
     }
 
     /**
