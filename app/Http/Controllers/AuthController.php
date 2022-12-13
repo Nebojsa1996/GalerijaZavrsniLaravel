@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -16,37 +18,79 @@ class AuthController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('auth:api', ['except' => ['login','register']]);
+        $this->middleware('auth:api', ['except' => ['login', 'register']]);
     }
 
     public function update($request)
     {
         // Validate the new password length...
- 
+
         $request->user()->fill([
             'password' => Hash::make($request->newPassword)
         ])->save();
     }
+
+
+    // public function register(RegisterRequest $request)
+    // {
+    //     $validatedData = $request->validated();
+
+    //     $user = User::create([
+    //         "first_name" => $validatedData["first_name"],
+    //         "last_name" => $validatedData["last_name"],
+    //         "email" => $validatedData["email"],
+    //         "password" => Hash::make($validatedData["password"])
+    //     ]);
+
+    //     $token = auth()->login($user);
+
+    //     return response()->json([
+    //         "status" => "success",
+    //         "user" => $user,
+    //         "authorization" => [
+    //             "token" => $token
+    //         ]
+    //     ]);
+    // }
+
 
     /**
      * Get a JWT via given credentials.
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login()
+    public function login(LoginRequest $request)
     {
-        $credentials = request(['email', 'password']);
+        $validatedData = $request->validated();
 
-        if ( !$token = auth()->attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        $credentials = [
+            "email" => $validatedData["email"],
+            "password" => $validatedData["password"]
+        ];
+
+        $token = Auth::attempt($credentials);
+
+        if (!$token) {
+            return response()->json([
+                "status" => "error",
+                "message" => "Unauthorized"
+            ], 401);
         }
 
-        return $this->respondWithToken($token);
+        return response()->json(
+            [
+                "status" => "success",
+                "user" => Auth::user(),
+                "authorization" => [
+                    "token" => $token,
+                ]
+            ]
+        );
     }
 
     public function register()
     {
-        $credentials = request(['name','email', 'password']);
+        $credentials = request(['first_name','last_name', 'email', 'password']);
         $credentials['password'] = bcrypt($credentials['password']);
 
         User::create($credentials);
@@ -69,9 +113,9 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function logout()
+    public function logout(Request $request)
     {
-        auth()->logout();
+        Auth::logout();
 
         return response()->json(['message' => 'Successfully logged out']);
     }
@@ -81,9 +125,15 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function refresh()
+    public function refresh(Request $request)
     {
-        return $this->respondWithToken(auth()->Auth::refresh());
+        return response()->json([
+            "status" => "success",
+            "user" => Auth::user(),
+            "authorization" => [
+                "token" => Auth::refresh()
+            ]
+        ]);
     }
 
     /**
